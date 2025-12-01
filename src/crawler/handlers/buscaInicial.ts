@@ -19,7 +19,33 @@ export async function handleBuscaInicial(
     timeout: 60000,
   });
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(5000); // Espera mais
+
+  // DEBUG: Screenshot pra ver o que carregou
+  const timestamp = Date.now();
+  await page.screenshot({
+    path: `/tmp/debug-busca-${timestamp}.png`,
+    fullPage: true,
+  });
+  log.info(`📸 Screenshot salvo: /tmp/debug-busca-${timestamp}.png`);
+
+  // DEBUG: Log do título da página
+  const title = await page.title();
+  log.info(`📄 Título da página: ${title}`);
+
+  // DEBUG: Log da URL atual
+  const currentUrl = page.url();
+  log.info(`🌐 URL atual: ${currentUrl}`);
+
+  // DEBUG: Verifica se tem captcha ou verificação
+  const pageContent = await page.content();
+  if (
+    pageContent.includes("captcha") ||
+    pageContent.includes("verification") ||
+    pageContent.includes("account-verification")
+  ) {
+    log.warning("⚠️ DETECTADO: Página de captcha/verificação!");
+  }
 
   // Scroll para carregar todos os produtos
   log.info("   📜 Fazendo scroll...");
@@ -29,6 +55,23 @@ export async function handleBuscaInicial(
   // Pega a URL final (depois do redirect do ML)
   const urlFinal = page.url();
   log.info(`   🌐 URL final: ${urlFinal}`);
+
+  // DEBUG: Conta quantos elementos de produto existem
+  const productCount = await page.evaluate(() => {
+    const selectors = [
+      'a[href*="produto.mercadolivre.com.br/MLB"]',
+      ".ui-search-result__wrapper",
+      ".ui-search-layout__item",
+      '[class*="ui-search-result"]',
+    ];
+
+    const counts: Record<string, number> = {};
+    selectors.forEach((sel) => {
+      counts[sel] = document.querySelectorAll(sel).length;
+    });
+    return counts;
+  });
+  log.info(`📊 Contagem de elementos: ${JSON.stringify(productCount)}`);
 
   // Extrai categoria da URL
   const urlParts = urlFinal

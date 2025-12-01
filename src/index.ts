@@ -8,11 +8,28 @@ import {
   disconnectDatabase,
   getStats,
 } from "./database/index.js";
+import { execSync } from "child_process";
 
 async function main(): Promise<void> {
   // Carrega configuração
   const config = loadConfig();
   logConfig(config);
+
+  // Teste de proxy com curl
+  if (config.proxy.host && config.proxy.user && config.proxy.pass) {
+    console.log("\n🧪 Testando proxy com curl...");
+    try {
+      const proxyUrl = `http://${config.proxy.user}:${config.proxy.pass}@${config.proxy.host}:${config.proxy.port}`;
+      const result = execSync(
+        `curl -x "${proxyUrl}" -s https://api.ipify.org`,
+        { timeout: 30000 }
+      );
+      console.log(`✅ Proxy funciona! IP: ${result.toString().trim()}`);
+    } catch (error) {
+      console.log(`❌ Proxy não funciona: ${error}`);
+    }
+    console.log("");
+  }
 
   // Conecta ao MongoDB
   await connectDatabase(config);

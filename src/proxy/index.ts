@@ -14,7 +14,10 @@ export function buildProxyUrl(proxy: ProxyConfig): string | null {
   }
 
   if (proxy.user && proxy.pass) {
-    return `http://${proxy.user}:${proxy.pass}@${proxy.host}:${proxy.port}`;
+    // Encoda user e pass pra evitar problemas com caracteres especiais
+    const user = encodeURIComponent(proxy.user);
+    const pass = encodeURIComponent(proxy.pass);
+    return `http://${user}:${pass}@${proxy.host}:${proxy.port}`;
   }
 
   return `http://${proxy.host}:${proxy.port}`;
@@ -30,7 +33,11 @@ export async function createProxyConfiguration(
     return undefined;
   }
 
+  // Log com senha mascarada
+  const urlSafe = proxyUrl.replace(/:([^:@]+)@/, ":****@");
   console.log(`🌐 Proxy: ${config.proxy.host}:${config.proxy.port}`);
+  console.log(`🔐 Proxy URL: ${urlSafe}`);
+  console.log(`👤 Proxy User: ${config.proxy.user}`);
 
   return new ProxyConfiguration({
     proxyUrls: [proxyUrl],

@@ -62,6 +62,8 @@ export async function handleBuscaPaginada(
       novos++;
     }
   }
+  // add for new push
+
   log.info(
     `   ➕ ${novos} produtos novos (${state.processedProducts.size} total)`
   );

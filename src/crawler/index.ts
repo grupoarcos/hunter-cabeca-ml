@@ -2,7 +2,6 @@ import { PlaywrightCrawler, type PlaywrightCrawlingContext } from "crawlee";
 import type { Config } from "../config/index.js";
 import type { StorageState } from "../storage/index.js";
 import type { FilterStats } from "../filters/index.js";
-import { createProxyConfiguration } from "../proxy/index.js";
 import {
   handleBuscaInicial,
   handleBuscaPaginada,
@@ -19,16 +18,32 @@ export async function createCrawler(
   state: StorageState,
   filterStats: FilterStats
 ): Promise<PlaywrightCrawler> {
-  const proxyConfiguration = await createProxyConfiguration(config);
+  // Monta proxy config pra passar direto no launch
+  const hasProxy = config.proxy.host && config.proxy.port;
+
+  const proxyConfig = hasProxy
+    ? {
+        server: `http://${config.proxy.host}:${config.proxy.port}`,
+        username: config.proxy.user || undefined,
+        password: config.proxy.pass || undefined,
+      }
+    : undefined;
+
+  if (proxyConfig) {
+    console.log(`🌐 Proxy: ${config.proxy.host}:${config.proxy.port}`);
+    console.log(`👤 Proxy User: ${config.proxy.user || "(IP Auth)"}`);
+  } else {
+    console.log("⚠️  Proxy não configurado, rodando sem proxy");
+  }
 
   const crawler = new PlaywrightCrawler({
-    proxyConfiguration,
     maxConcurrency: config.maxConcurrency,
-    requestHandlerTimeoutSecs: config.requestTimeout + config.delayMax, // Aumenta timeout pra incluir delay
+    requestHandlerTimeoutSecs: config.requestTimeout + config.delayMax,
 
     launchContext: {
       launchOptions: {
         headless: true,
+        proxy: proxyConfig, // Proxy direto aqui!
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -38,23 +53,19 @@ export async function createCrawler(
       },
     },
 
-    // Headers customizados por requisição
     preNavigationHooks: [
-      async ({ page, request }, gotoOptions) => {
-        // User-Agent aleatório
+      async ({ page }, gotoOptions) => {
         const userAgent = getRandomUserAgent();
         const headers = buildHeaders(userAgent);
 
         await page.setExtraHTTPHeaders(headers);
 
-        // Remove webdriver flag
         await page.addInitScript(() => {
           Object.defineProperty(navigator, "webdriver", {
             get: () => undefined,
           });
         });
 
-        // Log
         console.log(`   🌐 UA: ${userAgent.substring(0, 50)}...`);
       },
     ],
@@ -63,20 +74,17 @@ export async function createCrawler(
       const { request, log } = context;
       const { label } = request.userData;
 
-      // Delay aleatório ANTES de processar
       await randomDelay({
         min: config.delayMin * 1000,
         max: config.delayMax * 1000,
       });
 
-      // Verifica limite de lojas
       if (state.contador >= config.maxLojas) {
         log.info(`✅ Meta de ${config.maxLojas} lojas atingida!`);
         await crawler.autoscaledPool?.abort();
         return;
       }
 
-      // Verifica stop adaptativo
       if (state.paginasSemLojas >= config.stopIfNoNewStores) {
         log.info(
           `🛑 Stop adaptativo: ${config.stopIfNoNewStores} páginas sem lojas novas`

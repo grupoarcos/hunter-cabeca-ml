@@ -1,0 +1,38 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Dados locais
+data/
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Crawlee/Playwright
+storage/
+crawlee_storage/
+apify_storage/
+
+# Cache
+.cache/
+.npm/
+*.tsbuildinfo

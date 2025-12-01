@@ -5,6 +5,7 @@ import type { FilterStats } from "../../filters/index.js";
 import { extractSeller } from "../../extractors/index.js";
 import { applySellersFilters, logFilterResult } from "../../filters/index.js";
 import { saveLojaToDatabase } from "../../storage/index.js";
+import fs from "fs";
 
 export async function handleProduto(
   context: PlaywrightCrawlingContext,
@@ -22,20 +23,27 @@ export async function handleProduto(
     timeout: 30000,
   });
 
-  await page.waitForTimeout(5000); // Espera mais pro card do seller carregar
+  await page.waitForTimeout(5000);
 
-  // DEBUG: Screenshot do produto
-  const timestamp = Date.now();
-  const productId = request.url.match(/MLB-?(\d+)/)?.[1] || timestamp;
-  await page.screenshot({
-    path: `/app/data/debug-produto-${productId}.png`,
-    fullPage: false,
-  });
-  log.info(`   📸 Screenshot: debug-produto-${productId}.png`);
+  // DEBUG: Screenshot
+  const productId = request.url.match(/MLB-?(\d+)/)?.[1] || Date.now();
 
-  // DEBUG: Título e URL
+  try {
+    // Salva screenshot em arquivo
+    const screenshotPath = `/app/data/debug-produto-${productId}.png`;
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+    log.info(`   📸 Screenshot salvo: ${screenshotPath}`);
+  } catch (e) {
+    log.warning(`   ⚠️ Erro ao salvar screenshot: ${e}`);
+  }
+
+  // DEBUG: Título
   const title = await page.title();
-  log.info(`   📄 Título: ${title.substring(0, 50)}...`);
+  log.info(`   📄 Título: ${title.substring(0, 60)}...`);
+
+  // DEBUG: URL atual (pra ver se redirecionou)
+  const currentUrl = page.url();
+  log.info(`   🌐 URL atual: ${currentUrl.substring(0, 80)}...`);
 
   // DEBUG: Verifica se tem o card do seller
   const sellerCardExists = await page.evaluate(() => {
@@ -53,29 +61,34 @@ export async function handleProduto(
     });
     return results;
   });
-  log.info(`   🔍 Card seller existe: ${JSON.stringify(sellerCardExists)}`);
+  log.info(`   🔍 Card seller: ${JSON.stringify(sellerCardExists)}`);
 
-  // DEBUG: Pega o HTML do card do seller (se existir)
+  // DEBUG: Pega o HTML do card do seller
   const sellerHtml = await page.evaluate(() => {
     const sellerCard = document.querySelector(
-      ".ui-seller-data, .ui-pdp-seller, .ui-box-component-seller-data"
+      ".ui-seller-data, .ui-pdp-seller, .ui-box-component-seller-data, [class*='seller']"
     );
     if (sellerCard) {
-      return sellerCard.outerHTML.substring(0, 500) + "...";
+      return sellerCard.outerHTML.substring(0, 800);
     }
     return "NÃO ENCONTRADO";
   });
-  log.info(`   📝 HTML do seller: ${sellerHtml.substring(0, 200)}...`);
+  log.info(`   📝 HTML seller: ${sellerHtml.substring(0, 300)}...`);
 
   // Extrai dados do vendedor
   const seller = await extractSeller(page);
 
-  // Log para debug
   log.info(
     `   📊 Dados: ${seller.nome || "sem nome"} | Vendas: ${
       seller.vendas
     } | ML: ${seller.mercadoLider} | Verde: ${seller.reputacaoVerde}`
   );
+
+  // Se não achou dados, pula
+  if (!seller.nome || seller.nome === "sem nome") {
+    log.warning(`   ⚠️ Vendedor sem dados - pulando`);
+    return;
+  }
 
   // Aplica filtros
   const filterResult = applySellersFilters(
@@ -86,7 +99,6 @@ export async function handleProduto(
     filterStats
   );
 
-  // Log se rejeitado
   logFilterResult(seller, filterResult, log);
 
   if (!filterResult.approved) {
@@ -97,7 +109,7 @@ export async function handleProduto(
   state.processedLinks.add(seller.link!);
   state.processedNames.add(seller.nome!.toLowerCase().trim());
 
-  // Salva direto no MongoDB
+  // Salva no MongoDB
   const saved = await saveLojaToDatabase(config, seller, state);
 
   if (!saved) {

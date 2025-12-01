@@ -44,9 +44,9 @@ export function loadConfig(): Config {
     // Proxy
     proxy: {
       host: process.env.PROXY_HOST || "p.webshare.io",
-      port: process.env.PROXY_PORT || "9999",
-      user: process.env.PROXY_USER || "",
-      pass: process.env.PROXY_PASS || "",
+      port: process.env.PROXY_PORT || "80",
+      user: process.env.PROXY_USER || "fpzsrqhf-BR-AR-CL-CO-rotate",
+      pass: process.env.PROXY_PASS || "1zlklyvcdrlm",
     },
 
     // Crawler

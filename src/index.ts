@@ -15,6 +15,32 @@ async function main(): Promise<void> {
   const config = loadConfig();
   logConfig(config);
 
+  console.log("\n🌍 Descobrindo IP público do servidor...");
+  try {
+    const ip = execSync("curl -s https://api.ipify.org", { timeout: 30000 });
+    console.log(`📍 IP público: ${ip.toString().trim()}`);
+    console.log("👆 Adiciona esse IP no Webshare se ainda não tiver!\n");
+  } catch (error) {
+    console.log(`❌ Não conseguiu pegar IP: ${error}\n`);
+  }
+
+  // Teste de proxy com curl
+  if (config.proxy.host && config.proxy.user && config.proxy.pass) {
+    console.log("🧪 Testando proxy com curl...");
+    try {
+      const proxyUrl = `http://${config.proxy.user}:${config.proxy.pass}@${config.proxy.host}:${config.proxy.port}`;
+      const result = execSync(
+        `curl -x "${proxyUrl}" -s https://api.ipify.org`,
+        { timeout: 30000 }
+      );
+      console.log(
+        `✅ Proxy funciona! IP via proxy: ${result.toString().trim()}\n`
+      );
+    } catch (error) {
+      console.log(`❌ Proxy não funciona: ${error}\n`);
+    }
+  }
+
   // Teste de proxy com curl
   if (config.proxy.host && config.proxy.user && config.proxy.pass) {
     console.log("\n🧪 Testando proxy com curl...");
